@@ -15,13 +15,11 @@ int main(int argc, char **argv) {
     int sockfd, sockdo; 
     char buffer[MAXLINE]; 
     char buff[MAXLINE];
-    char stream[MAXLINE];
     char *msg = "SYN-ACK1234"; 
     struct sockaddr_in servaddr, cliaddr, servaddr1; 
     FILE *fp;
     int size;
     char mystring[10];
-    char ch;
     
     if(argc != 3){
       printf("Problem with the number of arguments\n" ); 
@@ -72,13 +70,6 @@ int main(int argc, char **argv) {
             len); 
     printf("SYN-ACK sent.\n");  
 
-    n = recvfrom(sockfd, (char *)buffer, MAXLINE,  
-                0, ( struct sockaddr *) &cliaddr, 
-                &len); 
-    buffer[n] = '\0'; 
-
-    //printf("Client : %s\n", buffer); //probleme ici
-
     //Creating second socket once connected
     if ( (sockdo = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) { 
         perror("socket creation failed"); 
@@ -91,6 +82,14 @@ int main(int argc, char **argv) {
         perror("bind failed"); 
         exit(EXIT_FAILURE); 
     } 
+    
+    n = recvfrom(sockfd, (char *)buffer, MAXLINE,  
+                0, ( struct sockaddr *) &cliaddr, 
+                &len); 
+    buffer[n] = '\0'; 
+
+    printf("Client : %s\n", buffer); 
+
 
     n = recvfrom(sockdo, (char *)buff, MAXLINE,  
                 0, ( struct sockaddr *) &cliaddr, 
@@ -104,35 +103,32 @@ int main(int argc, char **argv) {
     size = ftell(fp);
     fseek(fp, 0, SEEK_SET);
     int i=0;
-    while (ch != EOF)
+    int afread;
+    while (! feof(fp ))
     {   
-        fread(stream, 1, sizeof(stream), fp);
-        strncpy(buff, stream, MAXLINE);
-        printf("%s",stream);
-        // sendto(sockdo, buff, strlen(buff),  
-        // 0, (const struct sockaddr *) &cliaddr, 
-        //     len); 
-        // printf("Sending data number %d\n", i);
-        // n = recvfrom(sockdo, (char *)buff, MAXLINE,  
-        //         0, ( struct sockaddr *) &cliaddr, 
-        //         &len); 
-        // buff[n] = '\0'; 
-        // sprintf(mystring, "%06d", i);
-        // //if (buff==mystring){
-        // printf("ACK number %s received\n",buff);
-        // bzero(buff, MAXLINE);
-        // bzero(stream, MAXLINE);
-        //}
-        //else{
-
-        //}
+        afread=fread(buff, 1, MAXLINE, fp);
+        sendto(sockdo, buff, afread,  
+        0, (const struct sockaddr *) &cliaddr, 
+        len); 
+        //printf("afread:%d | n=%d\n", afread, n);
+        printf("Sending data number %d\n", i);
+        bzero(buff, MAXLINE);
+        n = recvfrom(sockdo, (char *)buff, MAXLINE,  
+               0, ( struct sockaddr *) &cliaddr, 
+                 &len); 
+        buff[n] = '\0'; 
+        sprintf(mystring, "%06d", i);
+        //if (buff==mystring)//{
+        printf("ACK number %s received\n",buff);
+        
         i++;
     }
+
     strcpy(buff, "END");   
     sendto(sockdo, buff, strlen(buff),  
         0, (const struct sockaddr *) &cliaddr, 
             len); 
-    printf("Fichier envoye");
+    printf("Fichier envoye\n");
     fclose(fp);
 
     return 0;

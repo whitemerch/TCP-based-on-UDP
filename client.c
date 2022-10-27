@@ -96,23 +96,24 @@ int main(int argc, char **argv) {
     i=0;
     while (1)
     {
-        recvfrom(sockdo, (char *)buff, MAXLINE,  
+        n=recvfrom(sockdo, (char *)buff, MAXLINE,  
                 0, (struct sockaddr *) &servaddr1, 
                 &len); 
-        buffer[n] = '\0';
+        buff[n] = '\0';
+        printf("%d\n", n);
         if (strcmp(buff, "END") == 0)
             break;
         sprintf(mystring, "%06d", i);
-        printf("Receiving data number i %s\n", mystring);
+        printf("Receiving data number %s\n", mystring);
         printf("Sending ACK number %s\n", mystring);
         sendto(sockdo, mystring, strlen(buff),  
         0, (const struct sockaddr *) &servaddr1, 
             len);
-        fwrite(buff, 1, sizeof(buff), fp);
+        fwrite(buff, 1, n, fp);
         bzero(buff, MAXLINE);
         i++;
     }
-    printf("Fichier recu");
+    printf("Fichier recu\n");
     fclose(fp);
 
     return 0; 
