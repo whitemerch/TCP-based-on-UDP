@@ -19,12 +19,14 @@ int main(int argc, char **argv) {
     char buff[MAXLINE];
     char *msg = "SYN"; 
     char *donnee;
-    char cpy[128];
+    char cpy[7];
     char sport[10];
+    char writ[MAXLINE-7];
     struct sockaddr_in     servaddr, servaddr1; 
     FILE *fp;
     int i;
-    char mystring[10];
+    char seq[7];
+    int lengt;
 
     if(argc != 3){
       printf("Problem with the number of arguments\n" ); 
@@ -86,7 +88,7 @@ int main(int argc, char **argv) {
     servaddr1.sin_port = htons(port); 
     servaddr1.sin_addr.s_addr = inet_addr(argv[1]); 
 
-    donnee="Socket 2";
+    donnee="Socket 2 openned";
     sendto(sockdo, (const char *)donnee, strlen(donnee), 
         0, (const struct sockaddr *) &servaddr1,  
             sizeof(servaddr1)); 
@@ -100,17 +102,17 @@ int main(int argc, char **argv) {
                 0, (struct sockaddr *) &servaddr1, 
                 &len); 
         buff[n] = '\0';
-        printf("%d\n", n);
         if (strcmp(buff, "END") == 0)
             break;
-        sprintf(mystring, "%06d", i);
-        printf("Receiving data number %s\n", mystring);
-        printf("Sending ACK number %s\n", mystring);
-        sendto(sockdo, mystring, strlen(buff),  
+        strncpy(seq,buff,6); 
+        seq[6] = '\0';
+        printf("Receiving data number %s\n", seq);
+        printf("Sending ACK number %s\n", seq);
+        sendto(sockdo, seq, strlen(buff),  
         0, (const struct sockaddr *) &servaddr1, 
             len);
-        fwrite(buff, 1, n, fp);
-        bzero(buff, MAXLINE);
+        fwrite(buff+6, 1, n-6, fp);
+        memset(buff,0, sizeof(buff));
         i++;
     }
     printf("Fichier recu\n");

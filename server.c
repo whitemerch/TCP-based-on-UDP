@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
     struct sockaddr_in servaddr, cliaddr, servaddr1; 
     FILE *fp;
     int size;
-    char mystring[10];
+    char seq[7];
     
     if(argc != 3){
       printf("Problem with the number of arguments\n" ); 
@@ -106,19 +106,18 @@ int main(int argc, char **argv) {
     int afread;
     while (! feof(fp ))
     {   
-        afread=fread(buff, 1, MAXLINE, fp);
-        sendto(sockdo, buff, afread,  
+        sprintf(seq, "%06d", i);
+        strcpy(buff,seq);
+        afread=fread(buff+6, 1, MAXLINE-6, fp);
+        sendto(sockdo, buff, afread+6,  
         0, (const struct sockaddr *) &cliaddr, 
         len); 
-        //printf("afread:%d | n=%d\n", afread, n);
-        printf("Sending data number %d\n", i);
-        bzero(buff, MAXLINE);
+        printf("Sending data number %s\n", seq);
+        memset(buff, 0, sizeof(buff));
         n = recvfrom(sockdo, (char *)buff, MAXLINE,  
                0, ( struct sockaddr *) &cliaddr, 
                  &len); 
         buff[n] = '\0'; 
-        sprintf(mystring, "%06d", i);
-        //if (buff==mystring)//{
         printf("ACK number %s received\n",buff);
         
         i++;
