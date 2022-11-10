@@ -12,7 +12,7 @@
 #define MAXLINE 1024 
 
 // ./client IP port
-//ip 134.214.202.227
+//ip /sbin/ifconfig
 int main(int argc, char **argv) { 
     int sockfd, sockdo; 
     char buffer[MAXLINE]; 
