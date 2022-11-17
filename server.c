@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/time.h>
+#include <math.h>
 
 #define PORT1 1234
 #define MAXLINE 1024
@@ -15,6 +16,8 @@ unsigned long RTT_func(struct timeval start, struct timeval stop){
     unsigned long RTT=(stop.tv_sec - start.tv_sec) * 1000000 + (stop.tv_usec - start.tv_usec);
     return RTT;
 }
+
+
 //fork chaque client une socket un port different
 // ./server PORT file
 int main(int argc, char **argv)
@@ -118,27 +121,49 @@ int main(int argc, char **argv)
     fseek(fp, 0, SEEK_SET);
     i = 0;
     cwnd=1;
-    while (!feof(fp))
-    {
-        sprintf(seq, "%06d", i);
-        strcpy(buff, seq);
-        afread = fread(buff + 6, 1, MAXLINE - 6, fp);
-        gettimeofday(&start, NULL);
-        sendto(sockdo, buff, afread + 6,
-               0, (const struct sockaddr *)&cliaddr,
-               len);
-        //printf("Sending data number %s\n", seq);
-        memset(buff, 0, sizeof(buff));
+    int j;
+    char packetfinal[7];
+    sprintf(packetfinal,"%06d",floor(size/1018));
+    char ackattendu[7];
+    int iattendu=0;
+    sprintf(ackattendu, "%06d", iattendu);
+    //printf("%s\n",ackattendu);
+    afread=1018;
+    while (1)
+    {   
+        if (afread==1018){
+            for (j=0;j<cwnd;j++){
+                sprintf(seq, "%06d", i);
+                strcpy(buff, seq);
+                afread = fread(buff + 6, 1, MAXLINE - 6, fp);
+                //gettimeofday(&start, NULL);
+                //printf("%s\n",buff);
+                sendto(sockdo, buff, afread + 6,
+                    0, (const struct sockaddr *)&cliaddr,
+                    len);
+                printf("Sending data number %s\n", seq);
+                memset(buff, 0, sizeof(buff));
+                i++;
+            }
+        }
         n = recvfrom(sockdo, (char *)buff, MAXLINE,
                      0, (struct sockaddr *)&cliaddr,
                      &len);
-        gettimeofday(&stop, NULL);
-        RTT=RTT_func(start, stop);
+        //gettimeofday(&stop, NULL);
+        //RTT=RTT_func(start, stop);
         buff[n] = '\0';
-        printf("RTT:%lu\n",RTT);
+        if (strcmp(buff,ackattendu)==0){
+            printf("ACK number %s received\n", buff);
+            if (strcmp(buff, packetfinal)==0)
+                break;
+            if (afread==1018)
+                cwnd+=1;
+            iattendu++;
+            sprintf(ackattendu, "%06d", iattendu);
+        }
+        //printf("RTT:%lu\n",RTT);
         //printf("ACK number %s received\n", buff);
 
-        i++;
     }
 
     strcpy(buff, "END");

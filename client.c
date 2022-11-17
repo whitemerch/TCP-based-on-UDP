@@ -102,6 +102,7 @@ int main(int argc, char **argv) {
                 0, (struct sockaddr *) &servaddr1, 
                 &len); 
         buff[n] = '\0';
+        //printf("%s\n",buff);
         if (strcmp(buff, "END") == 0)
             break;
         strncpy(seq,buff,6); 
