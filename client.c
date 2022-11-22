@@ -11,7 +11,13 @@
 
 #define MAXLINE 1024 
 
-// ./client IP port
+char *last(const char *str)
+{
+    size_t len = strlen(str);
+    return (char *)str + len - 4;
+}
+
+// ./client IP port nom fichier
 //ip /sbin/ifconfig
 int main(int argc, char **argv) { 
     int sockfd, sockdo; 
@@ -27,13 +33,14 @@ int main(int argc, char **argv) {
     int i;
     char seq[7];
     int lengt;
+    char ack[10];
 
-    if(argc != 3){
+    if(argc != 4){
       printf("Problem with the number of arguments\n" ); 
       exit(EXIT_FAILURE);
     }
     int PORT=atoi(argv[2]);
-    
+    char *filename=argv[3];
     // Creating socket file descriptor 
     if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) { 
         perror("socket creation failed"); 
@@ -65,12 +72,8 @@ int main(int argc, char **argv) {
     cpy[7] = '\0';
     printf("Server : %s\n", cpy); 
 
-    int length = strlen(buffer) - 7; //obtenir le port
-    if(length >= 0) {
-        strncpy(sport, buffer+7, length);
-        sport[length] = '\0';
-    }
-    int port=atoi(sport);
+    
+    int port=atoi(last(buffer));
 
     msg="ACK";
     sendto(sockfd, (const char *)msg, strlen(msg), 
@@ -88,11 +91,10 @@ int main(int argc, char **argv) {
     servaddr1.sin_port = htons(port); 
     servaddr1.sin_addr.s_addr = inet_addr(argv[1]); 
 
-    donnee="Socket 2 openned";
-    sendto(sockdo, (const char *)donnee, strlen(donnee), 
+    sendto(sockdo, (const char *)filename, strlen(filename), 
         0, (const struct sockaddr *) &servaddr1,  
             sizeof(servaddr1)); 
-    printf("Socket openned.\n"); 
+    printf("File %s sent.\n",filename);  
 
     fp=fopen("file1","w");
     i=0;
@@ -103,13 +105,16 @@ int main(int argc, char **argv) {
                 &len); 
         buff[n] = '\0';
         //printf("%s\n",buff);
-        if (strcmp(buff, "END") == 0)
+        if (strcmp(buff, "FIN") == 0)
             break;
         strncpy(seq,buff,6); 
         seq[6] = '\0';
+        memset(ack,0,strlen(ack));
+        strcpy(ack, "ACK");
+        strcpy(ack,seq);
         printf("Receiving data number %s\n", seq);
         printf("Sending ACK number %s\n", seq);
-        sendto(sockdo, seq, strlen(buff),  
+        sendto(sockdo, ack, strlen(buff),  
         0, (const struct sockaddr *) &servaddr1, 
             len);
         fwrite(buff+6, 1, n-6, fp);
