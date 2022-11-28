@@ -1,10 +1,7 @@
-main: client server
-
-client : client.c
-	gcc client.c -o client
+main: server
 
 server : server.c
 	gcc server.c -o server
 
 clean:
-	rm client server
+	rm server

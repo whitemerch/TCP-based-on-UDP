@@ -13,10 +13,6 @@
 
 #define MAXLINE 1024
 
-unsigned long RTT_func(struct timeval start, struct timeval stop){
-    unsigned long RTT=(stop.tv_sec - start.tv_sec) * 1000000 + (stop.tv_usec - start.tv_usec);
-    return RTT;
-}
 
 char *last(const char *str)
 {
@@ -24,11 +20,29 @@ char *last(const char *str)
     return (char *)str + len - 6;
 }
 
+int removezeros(const char *a){
+    int i, c = -1;
+
+    for (i = 3; i < strlen(a); i++) {
+        if (a[i] != '0') {
+            c = i;
+            break;
+        }
+    }
+    int num=atoi(((char *)a  - c));
+    return num;
+}
+
 void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30]){
     FILE *fp;
     char buff[MAXLINE], packetfinal[7], ackattendu[7], seq[7];
+    int acks[1000][10];
     int n, i, cwnd, size, afread;
     int len = sizeof(cliaddr);
+    int retrans=0;
+    int ssthresh=1;
+    fd_set readfds;
+    struct timeval timeout;
     
     // Openning the file 
     fp = fopen(filename, "r");
@@ -36,24 +50,27 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
     size = ftell(fp);
     fseek(fp, 0, SEEK_SET);
     
-
-    i = 0;
+    i = 1;
     cwnd=1;
     int j;
-    sprintf(packetfinal,"%06d",floor(size/1018));
-
-    int iattendu=0;
+    sprintf(packetfinal,"%06d",(int)floor(size/1018)+1);
+    int iattendu=1;
     sprintf(ackattendu, "%06d", iattendu);
     afread=1018;
+    int loop;
+    int lost=0;
+    //calculer le rtt
     while (1)
     {   
+        FD_ZERO(&readfds);
+        FD_SET(sockdo, &readfds);
+        timeout.tv_sec = 3; // timeout = 3 seconds
+        timeout.tv_usec = 0; //microseondes
         if (afread==1018){
             for (j=0;j<cwnd;j++){
                 sprintf(seq, "%06d", i);
                 strcpy(buff, seq);
                 afread = fread(buff + 6, 1, MAXLINE - 6, fp);
-                //gettimeofday(&start, NULL);
-                //printf("%s\n",buff);
                 sendto(sockdo, buff, afread + 6,
                     0, (const struct sockaddr *)&cliaddr,
                     len);
@@ -61,24 +78,48 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
                 memset(buff, 0, sizeof(buff));
                 i++;
             }
+            // if (lost==1){
+            //     iattendu++;
+            //     sprintf(ackattendu, "%06d", iattendu);
+            //     lost=0;
+            // }
         }
-        n = recvfrom(sockdo, (char *)buff, MAXLINE,
+        select(sockdo+1, &readfds, NULL, NULL, &timeout);
+        if (FD_ISSET(sockdo, &readfds)) {
+            n = recvfrom(sockdo, (char *)buff, MAXLINE,
                      0, (struct sockaddr *)&cliaddr,
                      &len);
-        //gettimeofday(&stop, NULL);
-        //RTT=RTT_func(start, stop);
-        buff[n] = '\0';
-        if (strcmp(last(buff),ackattendu)==0){
-            printf("ACK number %s received\n", buff);
-            if (strcmp(buff, packetfinal)==0)
-                break;
-            //Pour eviter d'augmenter la fenetre pour rien
-            if (afread==1018)
-                cwnd+=1;
-            iattendu++;
-            sprintf(ackattendu, "%06d", iattendu);
+            buff[n] = '\0';
+            if (strcmp(last(buff),ackattendu)==0){
+                printf("ACK number %s received\n", buff);
+                if (strcmp(last(buff), packetfinal)==0)
+                    break;
+                //Pour eviter d'augmenter la fenetre pour rien
+                if (afread==1018)
+                    if (cwnd<ssthresh)
+                        cwnd+=1;
+                //retrans=0;
+                iattendu++;
+                sprintf(ackattendu, "%06d", iattendu);
+            }
+            // else{
+            //     retrans++;
+            // }
+            // if (retrans==3){
+            //     fseek(fp, iattendu*1018,SEEK_SET);
+            //     retrans=0;
+            //     i=iattendu;
+            //     ssthresh=cwnd;
+            //     cwnd=floor(cwnd/2);
+            // }
         }
-        //printf("RTT:%lu\n",RTT);
+        //When we are waiting for the ack to be received. Either the packet is dropped or the ack is lost.
+        else{
+            printf("Timeout. Packet number %s retransmitted\n", ackattendu);
+            //lost=1;
+            i--;
+            fseek(fp, (removezeros(ackattendu)-1)*1018,SEEK_SET);
+        }
 
     }
     strcpy(buff, "FIN");
@@ -97,11 +138,9 @@ int main(int argc, char **argv)
     char buffer[MAXLINE], port[5];
     struct sockaddr_in servaddr, servaddr1, cliaddr;
     int size;
-    unsigned long RTT;
-    struct timeval stop, start;
     int PORT1;
     pid_t childpid;
-    char msg[13];
+    char msg[11];
     char filename[30];
 
     if (argc != 2)
@@ -172,7 +211,7 @@ int main(int argc, char **argv)
             perror("bind failed");
             exit(EXIT_FAILURE);
         }
-        printf("%s\n",msg);
+
         //Sending the SYN-ACKPORT
         sendto(sockfd, (const char *)msg, strlen(msg),
            0, (const struct sockaddr *)&cliaddr,
