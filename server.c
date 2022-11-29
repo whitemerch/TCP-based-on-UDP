@@ -13,30 +13,58 @@
 
 #define MAXLINE 1024
 
-
-char *last(const char *str)
+//ACK000001-->000001 substr(string,3,9) 9 len(ACK000001) 3: a partir de quel element on veut le string
+char* substr(const char *src, int m, int n)
 {
-    size_t len = strlen(str);
-    return (char *)str + len - 6;
+   
+    int len = n - m;
+ 
+    
+    char *dest = (char*)malloc(sizeof(char) * (len + 1));
+ 
+    
+    for (int i = m; i < n && (*(src + i) != '\0'); i++)
+    {
+        *dest = *(src + i);
+        dest++;
+    }
+ 
+    
+    *dest = '\0';
+ 
+    return dest - len;
 }
 
+//000001-->1
 int removezeros(const char *a){
     int i, c = -1;
 
-    for (i = 3; i < strlen(a); i++) {
+    for (i = 0; i < strlen(a); i++) {
         if (a[i] != '0') {
             c = i;
             break;
         }
     }
-    int num=atoi(((char *)a  - c));
+    int num=atoi(substr(a,c,6));
     return num;
+}
+
+int inlist(char acks[1000][10], const char *ackattendu){
+    int i;
+    for(i = 0; i < strlen(acks); ++i)
+    {
+        if(strcmp(acks[i], ackattendu)==0)
+        {
+            return 1;
+        }   
+    }
+    return 0;
 }
 
 void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30]){
     FILE *fp;
     char buff[MAXLINE], packetfinal[7], ackattendu[7], seq[7];
-    int acks[1000][10];
+    char acks[100000][10];
     int n, i, cwnd, size, afread;
     int len = sizeof(cliaddr);
     int retrans=0;
@@ -53,19 +81,20 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
     i = 1;
     cwnd=1;
     int j;
-    sprintf(packetfinal,"%06d",(int)floor(size/1018)+1);
+    sprintf(packetfinal,"%06d",(int)floor(size/1018)+1); //00000N
     int iattendu=1;
-    sprintf(ackattendu, "%06d", iattendu);
+    sprintf(ackattendu, "%06d", iattendu);//00000N
     afread=1018;
     int loop;
     int lost=0;
     //calculer le rtt
+    //2 solutions, si on recoit le mauvais ack, soit on retransmet,
     while (1)
     {   
         FD_ZERO(&readfds);
         FD_SET(sockdo, &readfds);
-        timeout.tv_sec = 3; // timeout = 3 seconds
-        timeout.tv_usec = 0; //microseondes
+        timeout.tv_sec = 0; // timeout = 0 seconds
+        timeout.tv_usec = 500000; //microseondes >19000 =20000
         if (afread==1018){
             for (j=0;j<cwnd;j++){
                 sprintf(seq, "%06d", i);
@@ -90,9 +119,12 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
                      0, (struct sockaddr *)&cliaddr,
                      &len);
             buff[n] = '\0';
-            if (strcmp(last(buff),ackattendu)==0){
+            printf("%s\n",buff);
+            strcpy(acks[(removezeros(substr(buff,3,9))-1)],buff);
+            if (strcmp(substr(buff,3,9),ackattendu)==0){
                 printf("ACK number %s received\n", buff);
-                if (strcmp(last(buff), packetfinal)==0)
+                //ACK000001 est à l'indice 0 du tableau. Le dernier ACK000106 est à l'indice 105
+                if (strcmp(substr(buff,3,9), packetfinal)==0)
                     break;
                 //Pour eviter d'augmenter la fenetre pour rien
                 if (afread==1018)
@@ -101,6 +133,9 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
                 //retrans=0;
                 iattendu++;
                 sprintf(ackattendu, "%06d", iattendu);
+            }
+            else{
+                
             }
             // else{
             //     retrans++;
