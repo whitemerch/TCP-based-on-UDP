@@ -1,0 +1,14 @@
+Fichier 107.9 kB
+Client 1:
+    1e cas: une fenetre fixe d'un paquet avec attente de son ack avant d'envoyer le prochain paquet. Avec retransmission
+    
+    Timeout=500ms: Débit=55.7kB/s
+    Timeout=20ms: Débit=163.4 kB/s
+    En dessous de 20ms on commence à renvoyer le paquet que le serveur suppose perdu alors qu'en fait c'est juste que le ack a pris du temps à arriver
+    =>programme bloqué dans la retransmission.
+
+Client 2:
+    1e cas:
+    
+    Timeout=500ms: Débit=27.65kB/s
+    Timeout=20ms: Débit=78.75 kB/s

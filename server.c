@@ -49,9 +49,10 @@ int removezeros(const char *a){
     return num;
 }
 
-int inlist(char acks[1000][10], const char *ackattendu){
+//Pour voir si le ackattendu est déjà dans la liste des acks reçus
+int inlist(const char acks[1000][10], const char ackattendu[13]){
     int i;
-    for(i = 0; i < strlen(acks); ++i)
+    for(i = 0; i < 1000; i++)
     {
         if(strcmp(acks[i], ackattendu)==0)
         {
@@ -64,7 +65,8 @@ int inlist(char acks[1000][10], const char *ackattendu){
 void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30]){
     FILE *fp;
     char buff[MAXLINE], packetfinal[7], ackattendu[7], seq[7];
-    char acks[100000][10];
+    char acks[1000][10];
+    char copy[10];
     int n, i, cwnd, size, afread;
     int len = sizeof(cliaddr);
     int retrans=0;
@@ -79,16 +81,12 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
     fseek(fp, 0, SEEK_SET);
     
     i = 1;
-    cwnd=1;
+    cwnd=3;
     int j;
     sprintf(packetfinal,"%06d",(int)floor(size/1018)+1); //00000N
     int iattendu=1;
     sprintf(ackattendu, "%06d", iattendu);//00000N
     afread=1018;
-    int loop;
-    int lost=0;
-    //calculer le rtt
-    //2 solutions, si on recoit le mauvais ack, soit on retransmet,
     while (1)
     {   
         FD_ZERO(&readfds);
@@ -107,57 +105,61 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
                 memset(buff, 0, sizeof(buff));
                 i++;
             }
-            // if (lost==1){
-            //     iattendu++;
-            //     sprintf(ackattendu, "%06d", iattendu);
-            //     lost=0;
-            // }
         }
-        select(sockdo+1, &readfds, NULL, NULL, &timeout);
-        if (FD_ISSET(sockdo, &readfds)) {
-            n = recvfrom(sockdo, (char *)buff, MAXLINE,
-                     0, (struct sockaddr *)&cliaddr,
-                     &len);
-            buff[n] = '\0';
-            printf("%s\n",buff);
-            strcpy(acks[(removezeros(substr(buff,3,9))-1)],buff);
-            if (strcmp(substr(buff,3,9),ackattendu)==0){
-                printf("ACK number %s received\n", buff);
-                //ACK000001 est à l'indice 0 du tableau. Le dernier ACK000106 est à l'indice 105
-                if (strcmp(substr(buff,3,9), packetfinal)==0)
-                    break;
-                //Pour eviter d'augmenter la fenetre pour rien
-                if (afread==1018)
-                    if (cwnd<ssthresh)
-                        cwnd+=1;
-                //retrans=0;
-                iattendu++;
-                sprintf(ackattendu, "%06d", iattendu);
+        for (j=0;j<cwnd;j++){
+            select(sockdo+1, &readfds, NULL, NULL, &timeout);
+            if (FD_ISSET(sockdo, &readfds)) {
+                n = recvfrom(sockdo, (char *)buff, MAXLINE,
+                        0, (struct sockaddr *)&cliaddr,
+                        &len);
+                buff[n] = '\0';
+                printf("%s\n",buff);
+                if (inlist(acks, substr(buff,3,9))==1){
+                    retrans++;
+                }
+                else{
+                    strcpy(acks[(removezeros(substr(buff,3,9))-1)],substr(buff,3,9));
+                }
+                if (strcmp(substr(buff,3,9),ackattendu)==0){
+                    printf("ACK number %s received\n", buff);
+                    //000001 est à l'indice 0 du tableau. Le dernier 000106 est à l'indice 105
+                    if (strcmp(substr(buff,3,9), packetfinal)==0)
+                        break;
+                    while (1){
+                        iattendu++;
+                        sprintf(ackattendu, "%06d", iattendu);
+                        if (inlist(acks,ackattendu)==0)
+                            break;
+                    }
+                }
+                else{
+                    //Normally when we don't get the ack of a certain packet we retransmit. The problem is sometimes the client considers that the paquet was received 
+                    //so he sends ack of the next paquet. Here we should consider that the packet is received so we should transmit the one after after the one not acknowledged
+                    if (retrans==2){
+                        printf("Wrong ACK received 3 times. The packet that wasn't acknowledged has been received. Transmission of packet number %d\n", removezeros(ackattendu)+2);
+                        retrans=0;
+                        strcpy(acks[removezeros(ackattendu-1)],ackattendu);
+                        fseek(fp, (removezeros(ackattendu)+1)*1018,SEEK_SET);
+                        iattendu+=2;
+                        sprintf(ackattendu, "%06d", iattendu);
+                        i=iattendu;
+
+                    }
+                }
             }
+            //When we are waiting for the ack to be received. Either the packet is dropped or the ack is lost.
             else{
-                
+                if (afread!=1018)
+                    goto finished;
+                printf("Timeout. Packet number %s retransmitted\n", ackattendu);
+                afread=1018;
+                i=removezeros(ackattendu);
+                fseek(fp, (removezeros(ackattendu)-1)*1018,SEEK_SET);
             }
-            // else{
-            //     retrans++;
-            // }
-            // if (retrans==3){
-            //     fseek(fp, iattendu*1018,SEEK_SET);
-            //     retrans=0;
-            //     i=iattendu;
-            //     ssthresh=cwnd;
-            //     cwnd=floor(cwnd/2);
-            // }
-        }
-        //When we are waiting for the ack to be received. Either the packet is dropped or the ack is lost.
-        else{
-            printf("Timeout. Packet number %s retransmitted\n", ackattendu);
-            //lost=1;
-            i--;
-            fseek(fp, (removezeros(ackattendu)-1)*1018,SEEK_SET);
         }
 
     }
-    strcpy(buff, "FIN");
+    finished: strcpy(buff, "FIN");
     sendto(sockdo, buff, strlen(buff),
            0, (const struct sockaddr *)&cliaddr,
            len);
