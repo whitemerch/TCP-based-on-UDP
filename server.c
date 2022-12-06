@@ -66,7 +66,7 @@ int inlist(const char acks[1000][10], const char ackattendu[13]){
 void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30]){
     FILE *fp;
     char buff[MAXLINE], packetfinal[7], ackattendu[7], seq[7];
-    char acks[100000][10];
+    char acks[1000000][10];
     char copy[10];
     int n, i, cwnd, size, afread;
     int len = sizeof(cliaddr);
@@ -81,7 +81,7 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
     fseek(fp, 0, SEEK_SET);
     
     i = 1;
-    cwnd=4;
+    cwnd=5;
     int j;
     sprintf(packetfinal,"%06d",(int)floor(size/1018)+1); //00000N
     int iattendu=1;
