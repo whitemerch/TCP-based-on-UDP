@@ -17,7 +17,7 @@ Client 1:
 
     fenetre 4:
 
-    Timeout=20ms: Débit=353 kB/s
+    Timeout=20ms: Débit=365 kB/s
 
     fenetre 5:
 
