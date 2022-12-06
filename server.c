@@ -81,7 +81,7 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
     fseek(fp, 0, SEEK_SET);
     
     i = 1;
-    cwnd=4;
+    cwnd=5;
     int j;
     sprintf(packetfinal,"%06d",(int)floor(size/1018)+1); //00000N
     int iattendu=1;
