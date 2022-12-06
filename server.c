@@ -66,7 +66,7 @@ int inlist(const char acks[1000][10], const char ackattendu[13]){
 void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30]){
     FILE *fp;
     char buff[MAXLINE], packetfinal[7], ackattendu[7], seq[7];
-    char acks[1000][10];
+    char acks[1000000][10];
     char copy[10];
     int n, i, cwnd, size, afread;
     int len = sizeof(cliaddr);
@@ -81,13 +81,14 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
     fseek(fp, 0, SEEK_SET);
     
     i = 1;
-    cwnd=2;
+    cwnd=5;
     int j;
     sprintf(packetfinal,"%06d",(int)floor(size/1018)+1); //00000N
     int iattendu=1;
     sprintf(ackattendu, "%06d", iattendu);//00000N
     afread=1018;
     int limit=0;
+    int brake;
     while (1)
     {   
         FD_ZERO(&readfds);
@@ -95,6 +96,7 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
         timeout.tv_sec = 0; // timeout = 0 seconds
         timeout.tv_usec = 20000; //microseondes >19000 =20000
         if (afread==1018){
+            brake=0;
             for (j=0;j<cwnd;j++){
                 sprintf(seq, "%06d", i);
                 strcpy(buff, seq);
@@ -106,6 +108,7 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
                     printf("Sending data number %s\n", seq);
                     memset(buff, 0, sizeof(buff));
                     i++;
+                    brake++;
                 }
             }
         }
@@ -151,6 +154,7 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
                     if (retrans==3){
                         if (removezeros(substr(buff,3,9))>removezeros(ackattendu)){
                             retrans=0;
+                            limit=0;
                             while (removezeros(substr(buff,3,9))>=removezeros(ackattendu)){
                                 strcpy(acks[removezeros(ackattendu-1)],ackattendu);
                                 iattendu++;
@@ -166,6 +170,7 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
                         //Sometimes when he needs a lost packet he sends the ack before it
                         if (removezeros(substr(buff,3,9))<removezeros(ackattendu)){
                             retrans=0;
+                            limit=0;
                             fseek(fp, (removezeros(ackattendu)-1)*1018,SEEK_SET);
                             i=iattendu;
                             printf("Wrong ACK received 3 times. The packet sent after was lost. Transmission of packet number %d\n", removezeros(ackattendu));
@@ -176,18 +181,20 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
                     else{
                         printf("Not the one we wanted.\n");
                         limit++;
-                        if (limit==cwnd){
+                        if (limit==brake){
                             printf("Limit reached\n");
                             strcpy(acks[removezeros(ackattendu-1)],ackattendu);
                             while (1){
-                                if (inlist(acks,ackattendu)==0)
-                                    break;
                                 iattendu++;
                                 sprintf(ackattendu, "%06d", iattendu);
-                                if (strcmp(ackattendu,packetfinal)==0){
-                                    goto finished;
+                                if (inlist(acks,ackattendu)==1){
+                                    if (strcmp(ackattendu, packetfinal)==0){
+                                        goto finished;
+                                    }
+                                }   
+                                if (inlist(acks,ackattendu)==0)
+                                    break;
                                 }
-                            }
                             limit=0;
                             retrans=0;
                         }
@@ -200,6 +207,8 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
                 afread=1018;
                 i=removezeros(ackattendu);
                 fseek(fp, (removezeros(ackattendu)-1)*1018,SEEK_SET);
+                limit=0;
+                retrans=0;
                 break;
             }
         }
