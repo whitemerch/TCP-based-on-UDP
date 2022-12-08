@@ -81,12 +81,12 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
     fseek(fp, 0, SEEK_SET);
     
     i = 1;
-    cwnd=70;
+    cwnd=100;
     int j;
-    sprintf(packetfinal,"%06d",(int)floor(size/1018)+1); //00000N
+    sprintf(packetfinal,"%06d",(int)floor(size/(MAXLINE-6))+1); //00000N
     int iattendu=1;
     sprintf(ackattendu, "%06d", iattendu);//00000N
-    afread=1018;
+    afread=MAXLINE-6;
     int limit=0;
     int brake;
     while (1)
@@ -94,8 +94,8 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
         FD_ZERO(&readfds);
         FD_SET(sockdo, &readfds);
         timeout.tv_sec = 0; // timeout = 0 seconds
-        timeout.tv_usec = 20000; //microseondes >19000 =20000
-        if (afread==1018){
+        timeout.tv_usec = 10000; //microseondes 
+        if (afread==(MAXLINE-6)){
             brake=0;
             for (j=0;j<cwnd;j++){
                 sprintf(seq, "%06d", i);
@@ -163,7 +163,7 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
                                     goto finished;
                                 }
                             }
-                            fseek(fp, (removezeros(ackattendu-1))*1018,SEEK_SET);
+                            fseek(fp, (removezeros(ackattendu-1))*(MAXLINE-6),SEEK_SET);
                             i=iattendu;
                             printf("Wrong ACK received 3 times. The packet that wasn't acknowledged has been received. Transmission of packet number %d\n", removezeros(ackattendu));
                         }
@@ -171,7 +171,7 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
                         if (removezeros(substr(buff,3,9))<removezeros(ackattendu)){
                             retrans=0;
                             limit=0;
-                            fseek(fp, (removezeros(ackattendu)-1)*1018,SEEK_SET);
+                            fseek(fp, (removezeros(ackattendu)-1)*(MAXLINE-6),SEEK_SET);
                             i=iattendu;
                             printf("Wrong ACK received 3 times. The packet sent after was lost. Transmission of packet number %d\n", removezeros(ackattendu));
                         }
@@ -203,9 +203,9 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
             //When we are waiting for the ack to be received. Either the packet is dropped or the ack is lost.
             else{
                 printf("Timeout. Packet number %s retransmitted\n", ackattendu);
-                afread=1018;
+                afread=MAXLINE-6;
                 i=removezeros(ackattendu);
-                fseek(fp, (removezeros(ackattendu)-1)*1018,SEEK_SET);
+                fseek(fp, (removezeros(ackattendu)-1)*(MAXLINE-6),SEEK_SET);
                 limit=0;
                 retrans=0;
                 break;
