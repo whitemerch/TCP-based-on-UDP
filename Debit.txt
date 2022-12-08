@@ -43,9 +43,18 @@ Client 1:
 
     fenetre 90: 1691 kB/s
 
+    1500 buffer:
+
+    fenetre 90: 1906 kB/s
+
     5ms:
 
     fenetre 90: 819 kB/s
+
+    Conclusion:
+    taille paquet 1500
+    timeout 10ms
+    fenetre 90
 
 Client 2:
 

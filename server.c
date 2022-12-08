@@ -11,7 +11,7 @@
 #include <signal.h>
 
 
-#define MAXLINE 1024
+#define MAXLINE 1500
 
 //ACK000001-->000001 substr(string,3,9) 9 len(ACK000001) 3: a partir de quel element on veut le string
 char* substr(const char *src, int m, int n)
@@ -81,7 +81,7 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
     fseek(fp, 0, SEEK_SET);
     
     i = 1;
-    cwnd=100;
+    cwnd=90;
     int j;
     sprintf(packetfinal,"%06d",(int)floor(size/(MAXLINE-6))+1); //00000N
     int iattendu=1;
@@ -121,7 +121,7 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
                 buff[n] = '\0';
                 printf("%s\n",buff);
                 //Si le ACK est déjà dans la liste des ack recus, possible ack dupliqué
-                if (inlist(acks, substr(buff,3,9))==1){
+                if (strcmp(acks[(removezeros(substr(buff,3,9))-1)],substr(buff,3,9))==0){
                     retrans++;
                 }
                 else{
@@ -138,6 +138,7 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
                     while (1){
                         iattendu++;
                         sprintf(ackattendu, "%06d", iattendu);
+                        //strcmp(acks[(removezeros(ackattendu)-1)],ackattendu)==0
                         if (inlist(acks,ackattendu)==1){
                             if (strcmp(ackattendu, packetfinal)==0){
                                 goto finished;
@@ -156,14 +157,14 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
                             retrans=0;
                             limit=0;
                             while (removezeros(substr(buff,3,9))>=removezeros(ackattendu)){
-                                strcpy(acks[removezeros(ackattendu-1)],ackattendu);
+                                strcpy(acks[(removezeros(ackattendu)-1)],ackattendu);
                                 iattendu++;
                                 sprintf(ackattendu, "%06d", iattendu);
                                 if (strcmp(ackattendu,packetfinal)==0){
                                     goto finished;
                                 }
                             }
-                            fseek(fp, (removezeros(ackattendu-1))*(MAXLINE-6),SEEK_SET);
+                            fseek(fp, (removezeros(ackattendu)-1)*(MAXLINE-6),SEEK_SET);
                             i=iattendu;
                             printf("Wrong ACK received 3 times. The packet that wasn't acknowledged has been received. Transmission of packet number %d\n", removezeros(ackattendu));
                         }
@@ -183,7 +184,7 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
                         limit++;
                         if (limit==brake){
                             printf("Limit reached\n");
-                            strcpy(acks[removezeros(ackattendu-1)],ackattendu);
+                            strcpy(acks[(removezeros(ackattendu)-1)],ackattendu);
                             while (1){
                                 iattendu++;
                                 sprintf(ackattendu, "%06d", iattendu);
