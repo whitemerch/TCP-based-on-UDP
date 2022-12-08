@@ -1,4 +1,4 @@
-Fichier 107.9 kB
+Fichier 104 857 600 bytes
 Client 1:
     1e cas: une fenetre fixe d'un paquet avec attente de son ack avant d'envoyer le prochain paquet. Avec retransmission
     
@@ -7,30 +7,61 @@ Client 1:
     En dessous de 20ms on commence à renvoyer le paquet que le serveur suppose perdu alors qu'en fait c'est juste que le ack a pris du temps à arriver
     =>programme bloqué dans la retransmission.
 
-    fenetre 2:
+    30ms:
 
-    Timeout=20ms: Débit=250 kB/s
+    fenetre 90: 718 kB/s
 
-    fenetre 3:
+    20ms:
 
-    Timeout=20ms: Débit=326 kB/s
+    fenetre 50: 703 kB/s
 
-    fenetre 4:
+    fenetre 60: 723 kB/s
 
-    Timeout=20ms: Débit=365 kB/s
+    fenetre 70: 743 kB/s
 
-    fenetre 5:
+    fenetre 80: 776 kB/s
 
-    Timeout=20ms: Débit=449 kB/s
+    fenetre 90: 780 kB/s
 
-    fenetre 5:
+    fenetre 100: 733 kB/s
 
-    Timeout=20ms: Débit=490 kB/s
+    fenetre 1000: 689 kB/s
+
+    10ms:
+
+    1024 buffer:
+
+    fenetre 90: 838 kB/s
+
+    fenetre 100: 743 kB/s
+
+    1200 buffer:
+
+    fenetre 90: 845 kB/s
+
+    1400 buffer:
+
+    fenetre 90: 1691 kB/s
+
+    5ms:
+
+    fenetre 90: 819 kB/s
 
 Client 2:
-    1e cas:
+
+    1ms:
+
+    fenetre 90: 190 kB/s
+    5ms:
     
-    Timeout=500ms: Débit=27.65kB/s
-    Timeout=20ms: Débit=78.75 kB/s
+    fenetre 90: 499 kB/s
+    
+    10ms:
+
+    fenetre 90: 412 kB/s
+
+    20ms 
+
+    fenetre 90: 314 kB/s
 
     
