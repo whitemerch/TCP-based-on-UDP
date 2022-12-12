@@ -1,76 +1,65 @@
 Fichier 104 857 600 bytes
 Client 1:
-    1e cas: une fenetre fixe d'un paquet avec attente de son ack avant d'envoyer le prochain paquet. Avec retransmission
+    Une fenetre fixe d'un paquet avec attente de son ack avant d'envoyer le prochain paquet. Avec retransmission à partir du paquet suivant le ack reçu en dupliqué
     
-    Timeout=500ms: Débit=55.7kB/s
-    Timeout=20ms: Débit=163.4 kB/s
-    En dessous de 20ms on commence à renvoyer le paquet que le serveur suppose perdu alors qu'en fait c'est juste que le ack a pris du temps à arriver
-    =>programme bloqué dans la retransmission.
+    Pour paquet 1500, fenetre=90
+    timeout 30ms 1,584 KB
+    timeout 20ms 1,768 KB
+    timeout 15ms 1,785 KB 
+    timeout 10ms 2,056 KB
+    timeout 9ms 2,030 KB
+    timeout 8ms 2,064 KB
+    timeout 7ms 1,934 KB
+    timeout 6ms 2,030 KB
+    timeout 5ms 2,042 KB
+    Conclusion: à partir de 10ms, les performances commencent à converger donc notre choix s'est porté sur 9ms vu qu'on a observé quelques fois qu'en dessous sur les logs 
+    Le serveur commencait à retransmettre alors qu'il fallait juste attendre les acks
 
-    30ms:
+    Pour timeout=9ms, paquet 1500
+    fenetre 10 1,002 KB
+    fenetre 20 1,588 KB
+    fenetre 30 2,005 KB
+    fenetre 40 2,213 KB
+    fenetre 50 1,946 KB
+    fenetre 60 2,216 KB
+    fenetre 70 1,963 KB
+    fenetre 80 2,063 KB
+    fenetre 90 1,969 KB
+    fenetre 100 1,890 KB
+    fenetre 200 1,945 KB
+    Conclusion: a partir d'une fenetre de taille 30, nous avons un débit similaire donc ca ne sert à rien d'envoyer plus de paquets parce que cela sera compensé par
+    le temps mis à retransmettre des paquets. Notre choix: fenetre=60
 
-    fenetre 90: 718 kB/s
+    Pour timeout=9ms fenetre=60
+    paquet 1024 1,294 KB
+    paquet 1100 1,399 KB
+    paquet 1200 1,552 KB
+    paquet 1300 1,603 KB
+    paquet 1400 1,880 KB
+    paquet 1500 2,216 kB
+    paquet 1600 echec
+    Conclusion: plus on augmente la taille maximale des paquets qu'on envoie plus on gagne en débit mais tout en restant sous la limite du mtu de 1500, auquel cas 
+    il va juste fragmenter le paquet donc tout le processus ne marchera plus et on perdra des données sans les récuperer
 
-    20ms:
-
-    fenetre 50: 703 kB/s
-
-    fenetre 60: 723 kB/s
-
-    fenetre 70: 743 kB/s
-
-    fenetre 80: 776 kB/s
-
-    fenetre 90: 780 kB/s
-
-    fenetre 100: 733 kB/s
-
-    fenetre 1000: 689 kB/s
-
-    10ms:
-
-    1024 buffer:
-
-    fenetre 90: 838 kB/s
-
-    fenetre 100: 743 kB/s
-
-    1200 buffer:
-
-    fenetre 90: 845 kB/s
-
-    1400 buffer:
-
-    fenetre 90: 1691 kB/s
-
-    1500 buffer:
-
-    fenetre 90: 1906 kB/s
-
-    5ms:
-
-    fenetre 90: 819 kB/s
-
-    Conclusion:
     taille paquet 1500
-    timeout 10ms
-    fenetre 90
+    timeout 9ms
+    fenetre 60
+    Debit 2,216 kB
 
 Client 2:
 
-    1ms:
-
-    fenetre 90: 190 kB/s
-    5ms:
+    Pour la même configuration que le client 1, débit de 698 KB/s avec une fenetre de 60, un timeout=9ms et une taille de paquet 1500
+    Refaire les tests pour la taille des paquets n'allait rien changer logiquement à part empirer les choses vu que c'est similaire au 1. 
+    La chose qu'on a remarqué était que plus on lui envoyait des paquets en une seule fois plus le client les droppait. C'est à dire qu'à un certain moment le client
+    2 droppait pratiquement tout ce qui recevait. L'étape logique était alors de diminuer la taille de la fenetre mais malgré ça on se retrouvait avec la contrainte
+    d'envoyer les paquets trop lentement. J'ai essayé de faire une taille de fenetre variable en fonction des pertes mais les pertes étaient tellement aléatoires que ça ne servait à rien.
     
-    fenetre 90: 499 kB/s
-    
-    10ms:
 
-    fenetre 90: 412 kB/s
-
-    20ms 
-
-    fenetre 90: 314 kB/s
-
-    
+Client 3:
+    1 client: 2,216 KB
+    2 clients: 1,866 KB
+    3 clients: 1,828 KB
+    4 clients: 1,628 KB
+    5 clients: 1,527 KB
+    6 clients: 1,330 KB
+    L'ordi mourrait
