@@ -49,19 +49,6 @@ int removezeros(const char *a){
     return num;
 }
 
-//Pour voir si le ackattendu est déjà dans la liste des acks reçus
-//Retourne 1 si dans la liste
-int inlist(const char acks[200000][10], const char ackattendu[13]){
-    int i;
-    for(i = 0; i < 200000; i++)
-    {
-        if(strcmp(acks[i], ackattendu)==0)
-        {
-            return 1;
-        }   
-    }
-    return 0;
-}
 
 void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30]){
     FILE *fp;
@@ -81,19 +68,22 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
     fseek(fp, 0, SEEK_SET);
     
     i = 1;
-    cwnd=60;
+    cwnd=100;
     int j;
     sprintf(packetfinal,"%06d",(int)floor(size/(MAXLINE-6))+1); //00000N
     int iattendu=1;
     sprintf(ackattendu, "%06d", iattendu);//00000N
     afread=MAXLINE-6;
+    int ackrecu=1;
     while (1)
     {   
         FD_ZERO(&readfds);
         FD_SET(sockdo, &readfds);
         timeout.tv_sec = 0; // timeout seconds
-        timeout.tv_usec = 8000; //microseondes 
+        timeout.tv_usec = 10000; //microseondes 
         if (afread==(MAXLINE-6)){
+            i=removezeros(ackattendu);
+            fseek(fp, (removezeros(ackattendu)-1)*(MAXLINE-6),SEEK_SET);
             for (j=0;j<cwnd;j++){
                 sprintf(seq, "%06d", i);
                 strcpy(buff, seq);
@@ -118,10 +108,16 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
                 printf("%s\n",buff);
                 //Si le ACK est déjà dans la liste des ack recus, possible ack dupliqué
                 if (strcmp(acks[(removezeros(substr(buff,3,9))-1)],substr(buff,3,9))==0){
-                    retrans++;
+                    if (removezeros(substr(buff,3,9))==ackrecu){
+                        retrans++;
+                    }
                 }
                 else{
                     strcpy(acks[(removezeros(substr(buff,3,9))-1)],substr(buff,3,9));
+                    if (removezeros(substr(buff,3,9))>ackrecu){
+                        retrans=0;
+                        ackrecu=removezeros(substr(buff,3,9));
+                    }
                 }
                 if (strcmp(substr(buff,3,9),ackattendu)==0){
                     printf("ACK number %s received\n", buff);
@@ -133,22 +129,21 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
                     while (1){
                         iattendu++;
                         sprintf(ackattendu, "%06d", iattendu);
-                        //strcmp(acks[(removezeros(ackattendu)-1)],ackattendu)==0
-                        if (inlist(acks,ackattendu)==1){
+                        if (strcmp(acks[(removezeros(ackattendu)-1)],ackattendu)==0){
                             if (strcmp(ackattendu, packetfinal)==0){
                                 goto finished;
                             }
                         }
-                        if (inlist(acks,ackattendu)==0){
+                        else{
                             break;
                         }
                     }
                 }
                 else{
-                    //Normally when we don't get the ack of a certain packet we retransmit. The problem is sometimes the client considers that the paquet was received 
-                    //so he sends ack of the next paquet. Here we should consider that the packet is received so we should transmit the one after after the one not acknowledged
+                    //Le client considère qu'un packet est transmis en envoyant un ack dupliqué il faut donc qu'on s'adapte et qu'on considère que tous les paquets reçu avant cet ack dupliqué ont bien été reçu
                     if (retrans==3){
                             retrans=0;
+                            printf("Wrong ACK received 3 times. The packet that wasn't acknowledged has been received\n");
                             while (removezeros(substr(buff,3,9))>=removezeros(ackattendu)){
                                 strcpy(acks[(removezeros(ackattendu)-1)],ackattendu);
                                 iattendu++;
@@ -157,17 +152,17 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
                                     goto finished;
                                 }
                             }
+                            printf("Transmission of packet number %d\n", removezeros(ackattendu));
                             fseek(fp, (removezeros(ackattendu)-1)*(MAXLINE-6),SEEK_SET);
                             i=iattendu;
-                            printf("Wrong ACK received 3 times. The packet that wasn't acknowledged has been received. Transmission of packet number %d\n", removezeros(ackattendu));
                     }
                 }
             }
-            //When we are waiting for the ack to be received. Either the packet is dropped or the ack is lost.
+            //Quand on attend des acks mais que le timeout est enclenché parce qu'on a rien reçu
             else{
                 printf("Timeout. Packet number %s retransmitted\n", ackattendu);
-                afread=MAXLINE-6;
                 i=removezeros(ackattendu);
+                afread=MAXLINE-6;
                 fseek(fp, (removezeros(ackattendu)-1)*(MAXLINE-6),SEEK_SET);
                 retrans=0;
                 break;
@@ -176,9 +171,11 @@ void envoi(int PORT1, int sockdo, struct sockaddr_in cliaddr, char filename[30])
 
     }
     finished:strcpy(buff, "FIN");
-    sendto(sockdo, buff, strlen(buff),
-           0, (const struct sockaddr *)&cliaddr,
-           len);
+    //Des fois le message de fin est drop aussi
+    for (j=0;j<=3;j++)
+        sendto(sockdo, buff, strlen(buff),
+            0, (const struct sockaddr *)&cliaddr,
+            len);
     printf("Fichier envoye\n");
     fclose(fp);
 
